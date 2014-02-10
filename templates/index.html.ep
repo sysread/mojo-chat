@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat rooms</title>
+
+        <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+        <script type="text/javascript" src="/chat.js"></script>
+
+        <script type="text/javascript">
+            var url = "<%= url_for('chat')->to_abs %>?room=<%= $room %>";
+
+            $(function() {
+                var chat = new ChatService({
+                    'url': url,
+                    'on_recv': function(title, lines) {
+                        $('#title').text(title);
+
+                        $('#chat').empty();
+                        for (var i = 0; i < lines.length; ++i) {
+                            var line = lines[i];
+                            var div = $('<div />');
+                            div.text(line);
+                            $('#chat').append(div).scrollTop(300);
+                        }
+                    }
+                });
+
+                $('#send').click(function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var msg = $('#msg').val();
+                    chat.queue(msg);
+                    $('#msg').val('');
+                });
+            });
+        </script>
+
+        <style>
+            div#chat {
+                width: 500px;
+                height: 300px;
+                overflow: scroll;
+                border: 1px solid #000;
+            }
+        </style>
+    </head>
+    <body>
+        <h4>[<%= $room %>] <span id="title"><%= $title %></span></h4>
+        <div id="chat"> </div>
+
+        <form>
+            <input type="text" id="msg" />
+            <input type="submit" id="send" value="Send" />
+        </form>
+
+        <h4>Other Rooms</h4>
+        <ul id="rooms">
+        <% foreach my $r (@$rooms) { %>
+            <li><a href="/?room=<%= $r %>"><%= $r %></a></li>
+        <% } %>
+        </ul>
+    </body>
+</html>
