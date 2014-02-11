@@ -12,14 +12,19 @@
             $(function() {
                 var chat = new ChatService({
                     'url': url,
-                    'on_recv': function(title, lines) {
+                    'set_title': function(title) {
                         $('#title').text(title);
-
+                    },
+                    'on_recv': function(lines) {
                         $('#chat').empty();
+
                         for (var i = 0; i < lines.length; ++i) {
                             var line = lines[i];
+                            var time = new Date(line['time'] || new Date().getTime()).toString();
+                            var msg  = line['msg'];
+
                             var div = $('<div />');
-                            div.text(line);
+                            div.text('[' + time + '] ' + msg);
                             $('#chat').append(div).scrollTop(300);
                         }
                     }

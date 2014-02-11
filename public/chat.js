@@ -21,7 +21,7 @@ ChatService.prototype.connect = function() {
         this.ws = new WebSocket(this.opt.url);
         this.ws.onopen    = this.on_connect.bind(this);
         this.ws.onclose   = this.on_close.bind(this);
-        this.ws.onmessage = this.on_recv.bind(this);
+        this.ws.onmessage = this.recv.bind(this);
     } else {
         console.log('...');
     }
@@ -42,22 +42,38 @@ ChatService.prototype.on_close = function(e) {
     this.ws = null;
 };
 
-ChatService.prototype.on_recv = function(e) {
+ChatService.prototype.recv = function(e) {
     var response = JSON.parse(e.data);
-    this.opt.on_recv(response.title, response.lines);
+
+    if (response.error) {
+        alert(response.error);
+        return;
+    }
+
+    if (response.title) {
+        this.opt.set_title(response.title);
+    }
+
+    if (response.lines) {
+        this.opt.on_recv(response.lines);
+    }
 };
 
-ChatService.prototype.send = function(msg) {
+ChatService.prototype.send = function(data) {
+    var msg = JSON.stringify(data);
     console.log('Send: ' + msg);
     this.ws.send(msg);
 };
 
 ChatService.prototype.queue = function(msg) {
+    var ts = new Date().getTime();
+    var data = { 'time': ts, 'msg': msg };
+
     if (this.is_connected) {
-        this.send(msg);
+        this.send(data);
     } else {
-        console.log('Queue: ' + msg);
-        this.pending.push(msg);
+        console.log('Queue: ' + JSON.stringify(data));
+        this.pending.push(data);
         this.connect();
     }
 };
