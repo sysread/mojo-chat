@@ -1,12 +1,14 @@
 #-------------------------------------------------------------------------------
 #-------------------------------------------------------------------------------
-package Chat;
+package Util::Chat;
 
 use strict;
 use warnings;
 use Carp;
 use Const::Fast;
 use Time::HiRes qw(time);
+
+use Util::Chat::Msg;
 
 #-------------------------------------------------------------------------------
 # Constants
@@ -93,7 +95,7 @@ sub get_messages {
 #-------------------------------------------------------------------------------
 sub post {
     my ($self, $name, $line) = @_;
-    my $msg = Chat::Msg->new(name => $name, msg => $line, ts => time);
+    my $msg = Util::Chat::Msg->new(name => $name, msg => $line, ts => time);
     push @{$self->{msgs}}, $msg;
     shift @{$self->{msgs}}
         while scalar(@{$self->{msgs}}) > $self->{history};

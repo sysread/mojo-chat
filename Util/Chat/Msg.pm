@@ -1,4 +1,4 @@
-package Chat::Msg;
+package Util::Chat::Msg;
 
 use strict;
 use warnings;

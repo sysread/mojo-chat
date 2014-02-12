@@ -1,7 +1,3 @@
-#-------------------------------------------------------------------------------
-# TODO
-#   * unsubscribe users when websocket disconnects
-#-------------------------------------------------------------------------------
 use strict;
 use warnings;
 
@@ -10,8 +6,7 @@ use Mojolicious::Plugin::TtRenderer;
 use Mojo::IOLoop;
 use Const::Fast;
 
-use Chat;
-use Chat::Msg;
+use Util::Chat;
 
 #-------------------------------------------------------------------------------
 # Constants
@@ -40,7 +35,7 @@ app->renderer->default_handler('tt');
 # Globals
 #-------------------------------------------------------------------------------
 my %CHAT = (
-    'The Quad' => Chat->new(
+    'The Quad' => Util::Chat->new(
         name    => 'The Quad',
         topic   => 'Welcome to the Quad!',
         history => $DEFAULT_HISTORY,
@@ -48,13 +43,16 @@ my %CHAT = (
 );
 
 #-------------------------------------------------------------------------------
-# Dispatch
+# Main entrance; asks for name and offers selection of rooms.
 #-------------------------------------------------------------------------------
 get '/' => sub {
     my $self = shift;
     $self->render('index', rooms => [keys %CHAT]);
 };
 
+#-------------------------------------------------------------------------------
+# Validates user's name and room, then redirects.
+#-------------------------------------------------------------------------------
 post '/' => sub {
     my $self = shift;
     my $name = $self->param('name');
@@ -77,6 +75,8 @@ post '/' => sub {
     }
 };
 
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 get '/room/:room' => sub {
     my $self = shift;
     my $room = $self->stash('room');
@@ -106,6 +106,8 @@ get '/room/:room' => sub {
     );
 };
 
+#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 websocket '/chat/:room' => sub {
     my $self = shift;
     my $room = $self->stash('room');

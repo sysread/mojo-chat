@@ -68,6 +68,8 @@
 
             buffer.append('<li>[' + time + '] &lt;' + nm + '&gt; ' + msg + '</li>');
         }
+
+        $('#messages li').last().scrollTop(0);
     }
 
     function _on_error(e) {
