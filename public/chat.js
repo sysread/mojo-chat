@@ -1,7 +1,3 @@
-if (!window.console.log) {
-    window.console.log = function() { };
-}
-
 function ChatService(opt) {
     this.opt = opt;
 
@@ -21,12 +17,11 @@ function ChatService(opt) {
 
 ChatService.prototype.connect = function() {
     if (!this.is_connected) {
-        console.log('Connecting to ' + this.opt.url);
         try {
             this.ws = new WebSocket(this.opt.url);
         } catch (e) {
-            console.log(e);
             clearInterval(this.reconnect);
+            this.opt.on_error(e);
         }
 
         this.ws.onopen    = this.on_connect.bind(this);
@@ -36,7 +31,6 @@ ChatService.prototype.connect = function() {
 };
 
 ChatService.prototype.on_connect = function(e) {
-    console.log('Connected to ' + this.opt.url);
     this.is_connected = true;
     while (this.pending.length > 0) {
         this.send(this.pending.shift());
@@ -44,7 +38,6 @@ ChatService.prototype.on_connect = function(e) {
 };
 
 ChatService.prototype.on_close = function(e) {
-    console.log('Disconnected from ' + this.opt.url);
     this.is_connected = false;
     this.ws = null;
 };
@@ -71,7 +64,6 @@ ChatService.prototype.recv = function(e) {
 };
 
 ChatService.prototype.send = function(msg) {
-    console.log('Send: ' + msg);
     this.ws.send(msg);
 };
 
@@ -81,7 +73,6 @@ ChatService.prototype.queue = function(msg) {
         if (this.is_connected) {
             this.send(msg);
         } else {
-            console.log('Queue: ' + msg);
             this.pending.push(msg);
             this.connect();
         }

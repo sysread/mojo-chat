@@ -1,3 +1,7 @@
+#-------------------------------------------------------------------------------
+# TODO
+#   * unsubscribe users when websocket disconnects
+#-------------------------------------------------------------------------------
 use strict;
 use warnings;
 
@@ -58,6 +62,7 @@ post '/' => sub {
 
     my @errors;
     push @errors, 'Please enter your name.'     unless $name;
+    push @errors, 'Invalid name.'               unless $name ne 'system';
     push @errors, 'Please select a chat room.'  unless $room;
     push @errors, 'That room does not exist.'   unless $room && exists $CHAT{$room};
     push @errors, 'That name is already taken.' if $name && $room && $CHAT{$room}->is_subscribed($name);
@@ -105,44 +110,44 @@ websocket '/chat/:room' => sub {
     my $self = shift;
     my $room = $self->stash('room');
 
-    unless ($room && exists $CHAT{$room}) {
-        $self->render('does_not_exist');
-        return;
-    }
+    die 'room not round'
+        unless $room && exists $CHAT{$room};
 
     my $name = $self->session->{chats}{$room}{name}
         or die 'not logged in';
 
     my $chat = $CHAT{$room};
+    $chat->post('system', "$name has entered the room.");
 
     # Increase timeout for websocket connections
     Mojo::IOLoop->stream($self->tx->connection)->timeout(600);
 
-    my $thread;
-    $thread = Mojo::IOLoop->recurring(1 => sub {
-        if (defined $self->tx && $self->tx->is_websocket) {
-            # Send updates
-            my @messages = $chat->get_messages($name);
-            my @users    = $chat->subscribed;
-            my $topic    = $chat->{topic};
+    my $thread = Mojo::IOLoop->recurring(1 => sub {
+        # Send updates
+        my @messages = $chat->get_messages($name);
+        my @users    = $chat->subscribed;
+        my $topic    = $chat->{topic};
 
-            $self->send({
-                json => {
-                    msgs  => [ map { {%$_} } @messages ],
-                    users => [ @users ],
-                    topic => $topic,
-                    room  => $room,
-                }
-            });
-        } else {
-            # Stop interval if websocket is disconnected
-            Mojo::IOLoop->remove($thread);
-        }
+        $self->send({
+            json => {
+                msgs  => [ map { {%$_} } @messages ],
+                users => [ @users ],
+                topic => $topic,
+                room  => $room,
+            }
+        });
     });
 
     $self->on(message => sub {
         my ($self, $msg) = @_;
         $chat->post($name, $msg);
+    });
+
+    $self->on(finish => sub {
+        my ($self, $code, $reason) = @_;
+        Mojo::IOLoop->remove($thread);
+        $chat->unsubscribe($name);
+        $chat->post('system', "$name left the room.");
     });
 };
 

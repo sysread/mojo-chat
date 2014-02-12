@@ -23,7 +23,11 @@
     function _set_users(users) {
         var list = '';
         for (var i = 0; i < users.length; ++i) {
-            list += '<li>' + users[i] + '</li>';
+            if (users[i] == name) {
+                list += '<li class="self">' + users[i] + '</li>';
+            } else {
+                list += '<li>' + users[i] + '</li>';
+            }
         }
 
         $('#userlist').html(list);
@@ -34,11 +38,40 @@
 
         for (var i = 0; i < lines.length; ++i) {
             var line = lines[i];
-            var ts   = line.ts;
-            var name = line.name;
             var msg  = line.msg;
-            buffer.append('<li>[' + ts + '] &lt;' + name + '&gt; ' + msg + '</li>');
+
+            /*
+             * Format the time into just hh:mm:ss. Note that the time stamp
+             * is represented as seconds from the epoch, not ms as JS uses.
+             */
+            var dt   = new Date(line.ts * 1000);
+            var time = dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds();
+
+            // Highlight the name
+            var nm = line.name;
+            var nm_cls = 'other';
+
+            if (nm == 'system') {
+                nm_cls = 'system';
+            } else if (nm == name) {
+                nm_cls = 'self';
+            }
+
+            nm = '<span class="' + nm_cls + '">' + nm + '</span>';
+
+            // Highlight system messages and messages mentioning the user's name
+            if (nm == 'system') {
+                msg = '<span class="system">' + msg + '</span>';
+            } else if (msg.search(new RegExp(name, 'i')) != -1 && line.name != name) {
+                msg = '<span class="notify">' + msg + '</span>';
+            }
+
+            buffer.append('<li>[' + time + '] &lt;' + nm + '&gt; ' + msg + '</li>');
         }
+    }
+
+    function _on_error(e) {
+        $('#errors').text(e);
     }
 
     $(function() {
@@ -48,6 +81,7 @@
             'set_topic' : _set_topic,
             'set_users' : _set_users,
             'add_msgs'  : _add_msgs,
+            'on_error'  : _on_error
         });
 
         $('#send_msg').click(function(e) {
@@ -62,6 +96,9 @@
 
             $('#message').val('').focus();
         });
+
+        // Start with focus on chat input
+        $('#message').focus();
     });
 </script>
 
@@ -74,11 +111,19 @@
     td#chat h4     { margin: 0; padding: 4px; }
     ul#messages    { list-style: none; padding: 0; margin: 0; overflow: scroll; height: 400px; }
     ul#messages li { padding: 2px; margin: 0; }
+    input#message  { width: 80%; }
 
     td#users       { width: 20%; }
     td#users h4    { margin: 0; padding: 4px; }
     td#users ul    { list-style: none; padding: 0; margin: 0; }
     td#users li    { padding: 2px; margin: 0; }
+
+    .other         { color: green; font-weight: bold; }
+    .self          { color: blue; font-weight: bold; }
+    .notify        { color: orange; font-weight: bold; }
+    .system        { color: darkred; font-weight: bold; }
+
+    #errors        { color: darkred; font-weight: bold; }
 </style>
 
 [% END %]
@@ -99,16 +144,11 @@
             </td>
             <td id="users">
                 <h4>Users</h4>
-                <ul id="userlist">
-                [% FOREACH user IN users %]
-
-                    <li>[% user %]</li>
-
-                [% END %]
-                </ul>
+                <ul id="userlist"></ul>
             </td>
         </tr>
     </tbody>
 </table>
+<div id="errors"></div>
 
 [% END %]
