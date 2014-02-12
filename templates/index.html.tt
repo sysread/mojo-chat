@@ -1,0 +1,39 @@
+[%
+    WRAPPER 'layouts/default.html.tt'
+    title = 'Chat rooms'
+%]
+<h1>Select a chat room</h1>
+
+[% IF errors %]
+<div class="errors">
+    Unable to enter the chat due to the following errors:
+    <ul>
+        [% FOREACH error IN errors %]
+        <li>[% error %]</li>
+        [% END %]
+    </ul>
+</div>
+[% END %]
+
+<form method="POST" action="/">
+    <table>
+        <tbody>
+            <tr>
+                <th>Your name:</th>
+                <td><input type="text" name="name" /></td>
+            </tr>
+            <tr>
+                <th>Chat room:</th>
+                <td>
+                    <select name="room">
+                        [% FOREACH room IN rooms %]
+                        <option value="[% room %]">[% room %]</option>
+                        [% END %]
+                    </select>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+    <input type="submit" value="Join the conversation" />
+</form>
+[% END %]

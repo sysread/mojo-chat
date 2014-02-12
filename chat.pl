@@ -1,85 +1,148 @@
-=cut
-
-TODO:
-    -user name
-    -time stamp on msg
-
-=cut
 use strict;
 use warnings;
 
-use Const::Fast;
 use Mojolicious::Lite;
+use Mojolicious::Plugin::TtRenderer;
 use Mojo::IOLoop;
-use JSON::XS;
+use Const::Fast;
 
-const our $ROOM_DEFAULT => 'TheQuad';
-const our $LINES_MAX    => 100;
+use Chat;
+use Chat::Msg;
 
-my %ROOM = (
-    $ROOM_DEFAULT => {
-        title => 'Welcome to the Quad',
-        lines => [
-            { time => time, msg => 'Welcome to the Quad!' },
-        ],
+#-------------------------------------------------------------------------------
+# Constants
+#-------------------------------------------------------------------------------
+const our $DEFAULT_HISTORY => 100;
+
+#-------------------------------------------------------------------------------
+# Plugins
+#-------------------------------------------------------------------------------
+plugin 'tt_renderer' => {
+    template_options => {
+        PRE_CHOMP  => 1,
+        POST_CHOMP => 1,
+        TRIM       => 1,
+        DEBUG      => 1,
     },
+};
+
+#-------------------------------------------------------------------------------
+# App configuration
+#-------------------------------------------------------------------------------
+app->secrets(['how now brown bureaucrat']);
+app->renderer->default_handler('tt');
+
+#-------------------------------------------------------------------------------
+# Globals
+#-------------------------------------------------------------------------------
+my %CHAT = (
+    'The Quad' => Chat->new(
+        name    => 'The Quad',
+        topic   => 'Welcome to the Quad!',
+        history => $DEFAULT_HISTORY,
+    ),
 );
 
-websocket '/chat' => sub {
+#-------------------------------------------------------------------------------
+# Dispatch
+#-------------------------------------------------------------------------------
+get '/' => sub {
     my $self = shift;
-    my $room = $self->param('room') // $ROOM_DEFAULT;
-    my $json = JSON::XS->new();
+    $self->render('index', rooms => [keys %CHAT]);
+};
+
+post '/' => sub {
+    my $self = shift;
+    my $name = $self->param('name');
+    my $room = $self->param('room');
+
+    my @errors;
+    push @errors, 'Please enter your name.'     unless $name;
+    push @errors, 'Please select a chat room.'  unless $room;
+    push @errors, 'That room does not exist.'   unless $room && exists $CHAT{$room};
+    push @errors, 'That name is already taken.' if $name && $room && $CHAT{$room}->is_subscribed($name);
+
+    if (@errors) {
+        $self->render('index', rooms => [keys %CHAT], errors => \@errors);
+    } else {
+        # Set the user's name for the selected chat room
+        $self->session->{chats} ||= {};
+        $self->session->{chats}{$room} = {name => $name};
+        $self->redirect_to("/room/$room");
+    }
+};
+
+get '/room/:room' => sub {
+    my $self = shift;
+    my $room = $self->stash('room');
+
+    unless ($room && exists $CHAT{$room}) {
+        $self->render('does_not_exist');
+        return;
+    }
+
+    my $name = $self->session->{chats}{$room}{name}
+        or return $self->redirect_to('/');
+
+    $CHAT{$room}->subscribe($name);
+
+    my $url = $self->url_for("/chat/$room");
+    my $abs = $url->to_abs;
+    $abs =~ s/http/ws/;
+
+    $self->render('chat',
+        name  => $name,
+        url   => $abs,
+        room  => $room,
+        topic => $CHAT{$room}->{topic},
+        users => [ $CHAT{$room}->subscribed ],
+    );
+};
+
+websocket '/chat/:room' => sub {
+    my $self = shift;
+    my $room = $self->stash('room');
+
+    unless ($room && exists $CHAT{$room}) {
+        $self->render('does_not_exist');
+        return;
+    }
+
+    my $name = $self->session->{chats}{$room}{name}
+        or die 'not logged in';
+
+    my $chat = $CHAT{$room};
 
     # Increase timeout for websocket connections
     Mojo::IOLoop->stream($self->tx->connection)->timeout(600);
 
-    # Add push messages
-    my $push_id;
-    $push_id = Mojo::IOLoop->recurring(1 => sub {
+    my $thread;
+    $thread = Mojo::IOLoop->recurring(1 => sub {
         if (defined $self->tx && $self->tx->is_websocket) {
-            # Send message updates
-            $self->send({json => {
-                title => $ROOM{$room}{title},
-                lines => $ROOM{$room}{lines},
-            }});
+            # Send updates
+            my @messages = $chat->get_messages($name);
+            my @users    = $chat->subscribed;
+            my $topic    = $chat->{topic};
+
+            $self->send({
+                json => {
+                    msgs  => [ @messages ],
+                    users => [ @users ],
+                    topic => $topic,
+                }
+            });
         } else {
             # Stop interval if websocket is disconnected
-            Mojo::IOLoop->remove($push_id);
+            Mojo::IOLoop->remove($thread);
         }
     });
 
-    # Install message handler for websocket
     $self->on(message => sub {
         my ($self, $data) = @_;
-        my $msg = eval { $json->decode($data) };
-
-        if ($@) {
-            warn $@;
-            $self->send({json => { error => 'There was an error decoding your message.' }});
-        } else {
-            $self->send({json => { error => 0 }});
-            push @{$ROOM{$room}{lines}}, {
-                msg  => $msg->{msg},
-                time => ($msg->{time} // time),
-            };
-
-            while (@{$ROOM{$room}{lines}} > $LINES_MAX) {
-                shift @{$ROOM{$room}{lines}};
-            }
-        }
     });
 };
 
-get '/' => sub {
-    my $self  = shift;
-    my $room  = $self->param('room') // $ROOM_DEFAULT;
-    my $rooms = [keys %ROOM];
-
-    $self->render(template => 'index',
-        room  => $room,
-        rooms => $rooms,
-        title => $ROOM{$room}{title},
-    );
-};
-
+#-------------------------------------------------------------------------------
+# Run the app
+#-------------------------------------------------------------------------------
 app->start;

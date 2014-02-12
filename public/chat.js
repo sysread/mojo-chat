@@ -2,13 +2,17 @@ if (!window.console.log) {
     window.console.log = function() { };
 }
 
-/*
- * Parameters:
- *      url:      URL to send messages to
- *      on_recv:  event handler for push data [proto: f(title, lines)]
- */
 function ChatService(opt) {
     this.opt = opt;
+
+    if (!this.opt.name) {
+        throw "opt.name not set";
+    }
+
+    if (!this.opt.url) {
+        throw "opt.url not set";
+    }
+
     this.ws = null;
     this.pending = [];
     this.is_connected = false;
@@ -18,7 +22,13 @@ function ChatService(opt) {
 ChatService.prototype.connect = function() {
     if (!this.is_connected) {
         console.log('Connecting to ' + this.opt.url);
-        this.ws = new WebSocket(this.opt.url);
+        try {
+            this.ws = new WebSocket(this.opt.url);
+        } catch (e) {
+            console.log(e);
+            clearInterval(this.reconnect);
+        }
+
         this.ws.onopen    = this.on_connect.bind(this);
         this.ws.onclose   = this.on_close.bind(this);
         this.ws.onmessage = this.recv.bind(this);
@@ -30,7 +40,6 @@ ChatService.prototype.connect = function() {
 ChatService.prototype.on_connect = function(e) {
     console.log('Connected to ' + this.opt.url);
     this.is_connected = true;
-
     while (this.pending.length > 0) {
         this.send(this.pending.shift());
     }
@@ -50,12 +59,16 @@ ChatService.prototype.recv = function(e) {
         return;
     }
 
-    if (response.title) {
-        this.opt.set_title(response.title);
+    if (response.topic) {
+        this.opt.set_topic(response.topic);
     }
 
-    if (response.lines) {
-        this.opt.on_recv(response.lines);
+    if (response.users) {
+        this.opt.set_users(response.users);
+    }
+
+    if (response.msgs) {
+        this.opt.add_msgs(response.msgs);
     }
 };
 
@@ -67,7 +80,7 @@ ChatService.prototype.send = function(data) {
 
 ChatService.prototype.queue = function(msg) {
     var ts = new Date().getTime();
-    var data = { 'time': ts, 'msg': msg };
+    var data = { 'name': this.opt.name, 'time': ts, 'msg': msg };
 
     if (this.is_connected) {
         this.send(data);
@@ -77,3 +90,4 @@ ChatService.prototype.queue = function(msg) {
         this.connect();
     }
 };
+

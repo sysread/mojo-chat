@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>[% title %]</title>
+        <script type="text/javascript" src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+
+[% headers %]
+
+    </head>
+    <body>
+
+[% content %]
+
+    </body>
+</html>

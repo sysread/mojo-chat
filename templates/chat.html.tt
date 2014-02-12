@@ -1,0 +1,85 @@
+[% headers = BLOCK %]
+
+<script type="text/javascript" src="/chat.js"></script>
+<script type="text/javascript">
+    function _set_topic() {
+    }
+
+    function _set_users() {
+    }
+
+    function _add_msgs() {
+    }
+
+    $(function() {
+        console.log("[% url %]");
+
+        var chat = new ChatService({
+            'url'       : "[% url %]",
+            'name'      : "[% name %]",
+            'set_topic' : _set_topic,
+            'set_users' : _set_users,
+            'add_msgs'  : _add_msgs,
+        });
+
+        $('#send_msg').click(function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+
+            var msg = $('#message').val().trim();
+
+            if (msg) {
+                console.log(msg);
+            }
+
+            $('#message').val('').focus();
+        });
+    });
+</script>
+
+<style>
+    table       { width: 80%; }
+    table td    { border: 1px solid black; }
+    table td    { vertical-align: top; }
+
+    td#chat     { width: 80%; }
+    td#chat h4  { margin: 0; padding: 4px; }
+    td#chat div { }
+
+    td#users    { width: 20%; }
+    td#users h4 { margin: 0; padding: 4px; }
+    td#users ul { list-style: none; padding: 0; margin: 0; }
+    td#users li { padding: 2px; margin: 0; }
+</style>
+
+[% END %]
+
+[% WRAPPER 'layouts/default.html.tt'
+   title = room
+%]
+<table>
+    <tbody>
+        <tr>
+            <td id="chat">
+                <h4>[[% room %]] [% topic %]</h4>
+                <div></div>
+                <form>
+                    <input type="text" id="message" />
+                    <input type="submit" id="send_msg" value="Send message" />
+                </form>
+            </td>
+            <td id="users">
+                <h4>Users</h4>
+                <ul>
+                [% FOREACH user IN users %]
+
+                    <li>[% user %]</li>
+
+                [% END %]
+                </ul>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+[% END %]
