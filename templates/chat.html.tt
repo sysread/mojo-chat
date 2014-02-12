@@ -2,21 +2,49 @@
 
 <script type="text/javascript" src="/chat.js"></script>
 <script type="text/javascript">
-    function _set_topic() {
+    /*
+     * TODO
+     *   -Maintain stable buffer
+     *   -Colorize user's name in chat
+     *   -Colorize teacher's name in chat
+     *   -Colorize lines by user
+     *   -Colorize lines mentioning user
+     */
+    var BUFFER_SIZE = 10;
+
+    var url  = "[% url %]";
+    var name = "[% name %]";
+    var room = "[% room %]";
+
+    function _set_topic(topic) {
+        $('#topic').text('[' + room + '] ' + topic);
     }
 
-    function _set_users() {
+    function _set_users(users) {
+        var list = '';
+        for (var i = 0; i < users.length; ++i) {
+            list += '<li>' + users[i] + '</li>';
+        }
+
+        $('#userlist').html(list);
     }
 
-    function _add_msgs() {
+    function _add_msgs(lines) {
+        var buffer = $('#messages');
+
+        for (var i = 0; i < lines.length; ++i) {
+            var line = lines[i];
+            var ts   = line.ts;
+            var name = line.name;
+            var msg  = line.msg;
+            buffer.append('<li>[' + ts + '] &lt;' + name + '&gt; ' + msg + '</li>');
+        }
     }
 
     $(function() {
-        console.log("[% url %]");
-
         var chat = new ChatService({
-            'url'       : "[% url %]",
-            'name'      : "[% name %]",
+            'url'       : url,
+            'name'      : name,
             'set_topic' : _set_topic,
             'set_users' : _set_users,
             'add_msgs'  : _add_msgs,
@@ -26,10 +54,10 @@
             e.stopPropagation();
             e.preventDefault();
 
-            var msg = $('#message').val().trim();
+            var msg = $('#message').val();
 
             if (msg) {
-                console.log(msg);
+                chat.queue(msg);
             }
 
             $('#message').val('').focus();
@@ -38,18 +66,19 @@
 </script>
 
 <style>
-    table       { width: 80%; }
-    table td    { border: 1px solid black; }
-    table td    { vertical-align: top; }
+    table          { width: 80%; }
+    table td       { border: 1px solid black; }
+    table td       { vertical-align: top; }
 
-    td#chat     { width: 80%; }
-    td#chat h4  { margin: 0; padding: 4px; }
-    td#chat div { }
+    td#chat        { width: 80%; }
+    td#chat h4     { margin: 0; padding: 4px; }
+    ul#messages    { list-style: none; padding: 0; margin: 0; overflow: scroll; height: 400px; }
+    ul#messages li { padding: 2px; margin: 0; }
 
-    td#users    { width: 20%; }
-    td#users h4 { margin: 0; padding: 4px; }
-    td#users ul { list-style: none; padding: 0; margin: 0; }
-    td#users li { padding: 2px; margin: 0; }
+    td#users       { width: 20%; }
+    td#users h4    { margin: 0; padding: 4px; }
+    td#users ul    { list-style: none; padding: 0; margin: 0; }
+    td#users li    { padding: 2px; margin: 0; }
 </style>
 
 [% END %]
@@ -61,8 +90,8 @@
     <tbody>
         <tr>
             <td id="chat">
-                <h4>[[% room %]] [% topic %]</h4>
-                <div></div>
+                <h4 id="topic">[[% room %]] [% topic %]</h4>
+                <ul id="messages"></ul>
                 <form>
                     <input type="text" id="message" />
                     <input type="submit" id="send_msg" value="Send message" />
@@ -70,7 +99,7 @@
             </td>
             <td id="users">
                 <h4>Users</h4>
-                <ul>
+                <ul id="userlist">
                 [% FOREACH user IN users %]
 
                     <li>[% user %]</li>

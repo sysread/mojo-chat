@@ -84,15 +84,17 @@ get '/room/:room' => sub {
     my $name = $self->session->{chats}{$room}{name}
         or return $self->redirect_to('/');
 
+    # Subscribe user to chatroom
     $CHAT{$room}->subscribe($name);
 
-    my $url = $self->url_for("/chat/$room");
-    my $abs = $url->to_abs;
-    $abs =~ s/http/ws/;
+    # Construct websocket URL
+    my $scheme = $self->req->is_secure ? 'wss' : 'ws';
+    my $path   = "/chat/$room/";
+    my $url    = $self->req->url->to_abs->scheme($scheme)->path($path);
 
     $self->render('chat',
         name  => $name,
-        url   => $abs,
+        url   => "$url",
         room  => $room,
         topic => $CHAT{$room}->{topic},
         users => [ $CHAT{$room}->subscribed ],
@@ -126,9 +128,10 @@ websocket '/chat/:room' => sub {
 
             $self->send({
                 json => {
-                    msgs  => [ @messages ],
+                    msgs  => [ map { {%$_} } @messages ],
                     users => [ @users ],
                     topic => $topic,
+                    room  => $room,
                 }
             });
         } else {
@@ -138,7 +141,8 @@ websocket '/chat/:room' => sub {
     });
 
     $self->on(message => sub {
-        my ($self, $data) = @_;
+        my ($self, $msg) = @_;
+        $chat->post($name, $msg);
     });
 };
 

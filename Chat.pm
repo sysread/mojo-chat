@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use Carp;
 use Const::Fast;
+use Time::HiRes qw(time);
 
 #-------------------------------------------------------------------------------
 # Constants
@@ -73,7 +74,7 @@ sub subscribed {
 sub get_messages {
     my ($self, $name) = @_;
     $self->subscribe($name) unless $self->is_subscribed($name);
-    my @msgs = grep { $_->{time} < $self->{push}{$name} } @{$self->{msgs}};
+    my @msgs = grep { $_->{ts} > $self->{push}{$name} } @{$self->{msgs}};
     $self->{push}{$name} = time;
     return @msgs;
 }
@@ -83,7 +84,8 @@ sub get_messages {
 # buffer does not grow beyond $self->{history} messages.
 #-------------------------------------------------------------------------------
 sub post {
-    my ($self, $msg) = @_;
+    my ($self, $name, $line) = @_;
+    my $msg = Chat::Msg->new(name => $name, msg => $line, ts => time);
     push @{$self->{msgs}}, $msg;
     shift @{$self->{msgs}}
         while scalar(@{$self->{msgs}}) > $self->{history};

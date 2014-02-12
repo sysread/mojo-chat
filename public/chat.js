@@ -16,7 +16,7 @@ function ChatService(opt) {
     this.ws = null;
     this.pending = [];
     this.is_connected = false;
-    this.reconnect = setInterval(this.connect.bind(this), 1000);
+    this.reconnect = setInterval(this.connect.bind(this), 1500);
 }
 
 ChatService.prototype.connect = function() {
@@ -32,8 +32,6 @@ ChatService.prototype.connect = function() {
         this.ws.onopen    = this.on_connect.bind(this);
         this.ws.onclose   = this.on_close.bind(this);
         this.ws.onmessage = this.recv.bind(this);
-    } else {
-        console.log('...');
     }
 };
 
@@ -72,22 +70,21 @@ ChatService.prototype.recv = function(e) {
     }
 };
 
-ChatService.prototype.send = function(data) {
-    var msg = JSON.stringify(data);
+ChatService.prototype.send = function(msg) {
     console.log('Send: ' + msg);
     this.ws.send(msg);
 };
 
 ChatService.prototype.queue = function(msg) {
-    var ts = new Date().getTime();
-    var data = { 'name': this.opt.name, 'time': ts, 'msg': msg };
-
-    if (this.is_connected) {
-        this.send(data);
-    } else {
-        console.log('Queue: ' + JSON.stringify(data));
-        this.pending.push(data);
-        this.connect();
+    msg = msg.trim();
+    if (msg != '') {
+        if (this.is_connected) {
+            this.send(msg);
+        } else {
+            console.log('Queue: ' + msg);
+            this.pending.push(msg);
+            this.connect();
+        }
     }
 };
 
