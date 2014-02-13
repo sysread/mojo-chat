@@ -6,10 +6,9 @@ use Mojolicious::Plugin::TtRenderer;
 use Mojo::IOLoop;
 use Const::Fast;
 
+use Data::Fixtures;
+use Data::Course;
 use Util::Chat;
-use Data;
-use Data::Class;
-use Data::Section;
 
 #-------------------------------------------------------------------------------
 # Constants
@@ -37,57 +36,41 @@ app->renderer->default_handler('tt');
 #-------------------------------------------------------------------------------
 # Globals
 #-------------------------------------------------------------------------------
-my %CHAT = (
-    'The Quad' => Util::Chat->new(
-        name    => 'The Quad',
-        topic   => 'Welcome to the Quad!',
-        history => $DEFAULT_HISTORY,
-    ),
-);
+my %CHAT;
 
 #-------------------------------------------------------------------------------
-# Utilities
+# DEMO: populates database with fake data
 #-------------------------------------------------------------------------------
 sub initialize {
-    warn "Initializing...n";
+    warn "Initializing...\n";
 
-    warn "Adding pretend classes:\n";
-    foreach my $class_name (qw(Reading Writing Arithmetic)) {
-        warn "Class: $class_name\n";
-        my $class = Data::Class->find_or_create({
-            name   => $class_name,
-            active => 1,
-        });
+    Data::Fixtures::generate();
 
-        foreach my $section_name (qw(001 002 003)) {
-            warn "+Section: $section_name\n";
-            my $section = Data::Section->find_or_create({
-                class  => $class,
-                name   => $section_name,
-                active => 1,
-            });
-        }
-    }
+    warn "Creating chat rooms for pretend courses:\n";
 
-    warn "Creating chat rooms for pretend classes:\n";
-    foreach my $class (Data::Class->search(active => 1)) {
-        my $chat = $class->name;
-        warn "Class chat: $chat\n";
-        $CHAT{$chat} = Util::Chat->new(
-            name    => $chat,
-            topic   => "Class chat: $chat",
+    %CHAT = (
+        'The Quad' => Util::Chat->new(
+            name    => 'The Quad',
+            topic   => 'Welcome to the Quad!',
+            history => $DEFAULT_HISTORY,
+        ),
+    );
+
+    foreach my $class (Data::Class->search({ active => 1 })) {
+        my $course  = $class->course->name;
+        my $section = $course . ':' . $class->section->name;
+
+        $CHAT{$course} ||= Util::Chat->new(
+            name    => "$course (all sections)",
+            topic   => "Group discussion of all $course sections.",
             history => $DEFAULT_HISTORY,
         );
 
-        foreach my $section ($class->sections(active => 1)) {
-            my $chat = $class->name . '-' . $section->name;
-            warn "+Section chat: $chat\n";
-            $CHAT{$chat} = Util::Chat->new(
-                name    => $chat,
-                topic   => "Class chat: $chat",
-                history => $DEFAULT_HISTORY,
-            );
-        }
+        $CHAT{$section} = Util::Chat->new(
+            name    => $section,
+            topic   => "Discussion for $course section $section.",
+            history => $DEFAULT_HISTORY,
+        );
     }
 }
 
@@ -125,6 +108,7 @@ post '/' => sub {
 };
 
 #-------------------------------------------------------------------------------
+# Displays the chat room.
 #-------------------------------------------------------------------------------
 get '/room/:room' => sub {
     my $self = shift;
@@ -151,11 +135,12 @@ get '/room/:room' => sub {
         url   => "$url",
         room  => $room,
         topic => $CHAT{$room}->{topic},
-        users => [ $CHAT{$room}->subscribed ],
     );
 };
 
 #-------------------------------------------------------------------------------
+# Websocket connection handler. Accepts new messages and installs a repeating
+# timer that pushes new messages to the client.
 #-------------------------------------------------------------------------------
 websocket '/chat/:room' => sub {
     my $self = shift;

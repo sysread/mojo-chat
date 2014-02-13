@@ -2,9 +2,9 @@ package Data::Section;
 
 use base 'Data';
 
-Data::Section->table('section');
-Data::Section->columns(Primary => 'id');
-Data::Section->columns(Essential => qw(name active class));
-Data::Section->has_a(class => 'Data::Class');
+__PACKAGE__->table('section');
+__PACKAGE__->columns(Primary => 'rowid');
+__PACKAGE__->columns(Essential => qw(name course));
+__PACKAGE__->has_a(course => 'Data::Course');
 
 1;
