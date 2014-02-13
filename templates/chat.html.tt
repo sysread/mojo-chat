@@ -5,10 +5,7 @@
     /*
      * TODO
      *   -Maintain stable buffer
-     *   -Colorize user's name in chat
      *   -Colorize teacher's name in chat
-     *   -Colorize lines by user
-     *   -Colorize lines mentioning user
      */
     var BUFFER_SIZE = 10;
 

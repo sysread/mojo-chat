@@ -1,18 +1,17 @@
 function ChatService(opt) {
     this.opt = opt;
 
-    if (!this.opt.name) {
-        throw "opt.name not set";
-    }
-
-    if (!this.opt.url) {
-        throw "opt.url not set";
-    }
+    ['name', 'url', 'set_topic', 'set_users', 'add_msgs', 'on_error'].each(
+        function(key) {
+            if (!Object.has(opt, key))
+                throw("opt." + key + " not set");
+        }
+    );
 
     this.ws = null;
     this.pending = [];
     this.is_connected = false;
-    this.reconnect = setInterval(this.connect.bind(this), 1500);
+    this.connect.bind(this).every(1500);
 }
 
 ChatService.prototype.connect = function() {
@@ -20,7 +19,7 @@ ChatService.prototype.connect = function() {
         try {
             this.ws = new WebSocket(this.opt.url);
         } catch (e) {
-            clearInterval(this.reconnect);
+            this.connect.cancel();
             this.opt.on_error(e);
         }
 
