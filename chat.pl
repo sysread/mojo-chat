@@ -7,6 +7,9 @@ use Mojo::IOLoop;
 use Const::Fast;
 
 use Util::Chat;
+use Data;
+use Data::Class;
+use Data::Section;
 
 #-------------------------------------------------------------------------------
 # Constants
@@ -43,11 +46,57 @@ my %CHAT = (
 );
 
 #-------------------------------------------------------------------------------
+# Utilities
+#-------------------------------------------------------------------------------
+sub initialize {
+    warn "Initializing...n";
+
+    warn "Adding pretend classes:\n";
+    foreach my $class_name (qw(Reading Writing Arithmetic)) {
+        warn "Class: $class_name\n";
+        my $class = Data::Class->find_or_create({
+            name   => $class_name,
+            active => 1,
+        });
+
+        foreach my $section_name (qw(001 002 003)) {
+            warn "+Section: $section_name\n";
+            my $section = Data::Section->find_or_create({
+                class  => $class,
+                name   => $section_name,
+                active => 1,
+            });
+        }
+    }
+
+    warn "Creating chat rooms for pretend classes:\n";
+    foreach my $class (Data::Class->search(active => 1)) {
+        my $chat = $class->name;
+        warn "Class chat: $chat\n";
+        $CHAT{$chat} = Util::Chat->new(
+            name    => $chat,
+            topic   => "Class chat: $chat",
+            history => $DEFAULT_HISTORY,
+        );
+
+        foreach my $section ($class->sections(active => 1)) {
+            my $chat = $class->name . '-' . $section->name;
+            warn "+Section chat: $chat\n";
+            $CHAT{$chat} = Util::Chat->new(
+                name    => $chat,
+                topic   => "Class chat: $chat",
+                history => $DEFAULT_HISTORY,
+            );
+        }
+    }
+}
+
+#-------------------------------------------------------------------------------
 # Main entrance; asks for name and offers selection of rooms.
 #-------------------------------------------------------------------------------
 get '/' => sub {
     my $self = shift;
-    $self->render('index', rooms => [keys %CHAT]);
+    $self->render('index', rooms => [sort keys %CHAT]);
 };
 
 #-------------------------------------------------------------------------------
@@ -66,7 +115,7 @@ post '/' => sub {
     push @errors, 'That name is already taken.' if $name && $room && $CHAT{$room}->is_subscribed($name);
 
     if (@errors) {
-        $self->render('index', rooms => [keys %CHAT], errors => \@errors);
+        $self->render('index', rooms => [sort keys %CHAT], errors => \@errors);
     } else {
         # Set the user's name for the selected chat room
         $self->session->{chats} ||= {};
@@ -156,4 +205,5 @@ websocket '/chat/:room' => sub {
 #-------------------------------------------------------------------------------
 # Run the app
 #-------------------------------------------------------------------------------
+initialize();
 app->start;
