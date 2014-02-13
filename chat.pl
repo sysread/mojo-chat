@@ -158,7 +158,7 @@ websocket '/chat/:room' => sub {
     # Increase timeout for websocket connections
     Mojo::IOLoop->stream($self->tx->connection)->timeout(600);
 
-    my $thread = Mojo::IOLoop->recurring(1 => sub {
+    my $thread = Mojo::IOLoop->recurring(0.5 => sub {
         # Send updates
         my @messages = $chat->get_messages($name);
         my @users    = $chat->subscribed;

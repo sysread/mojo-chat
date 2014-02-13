@@ -1,6 +1,5 @@
-[%
-    WRAPPER 'layouts/default.html.tt'
-    title = 'Chat rooms'
+[% WRAPPER 'layouts/default.html.tt'
+   title = 'Chat rooms'
 %]
 <h1>Select a chat room</h1>
 

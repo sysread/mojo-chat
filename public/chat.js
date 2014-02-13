@@ -12,6 +12,7 @@ function ChatService(opt) {
     this.pending = [];
     this.is_connected = false;
     this.connect.bind(this).every(1500);
+    this.initialized = false;
 }
 
 ChatService.prototype.connect = function() {
@@ -33,6 +34,13 @@ ChatService.prototype.on_connect = function(e) {
     this.is_connected = true;
     while (this.pending.length > 0) {
         this.send(this.pending.shift());
+    }
+
+    if (!this.initialized) {
+        this.initialized = true;
+        if (Object.has(this.opt, 'on_ready')) {
+            this.opt.on_ready();
+        }
     }
 };
 

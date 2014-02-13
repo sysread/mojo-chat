@@ -4,10 +4,9 @@
 <script type="text/javascript">
     /*
      * TODO
-     *   -Maintain stable buffer
      *   -Colorize teacher's name in chat
      */
-    var BUFFER_SIZE = 10;
+    var BUFFER_SIZE = 100;
 
     var url  = "[% url %]";
     var name = "[% name %]";
@@ -33,16 +32,14 @@
     function _add_msgs(lines) {
         var buffer = $('#messages');
 
-        for (var i = 0; i < lines.length; ++i) {
-            var line = lines[i];
+        lines.each(function(line) {
             var msg  = line.msg;
 
             /*
              * Format the time into just hh:mm:ss. Note that the time stamp
              * is represented as seconds from the epoch, not ms as JS uses.
              */
-            var dt   = new Date(line.ts * 1000);
-            var time = dt.getHours() + ':' + dt.getMinutes() + ':' + dt.getSeconds();
+            var time = new Date(line.ts * 1000).format('{HH}:{mm}:{ss}');
 
             // Highlight the name
             var nm = line.name;
@@ -59,18 +56,26 @@
             // Highlight system messages and messages mentioning the user's name
             if (nm == 'system') {
                 msg = '<span class="system">' + msg + '</span>';
-            } else if (msg.search(new RegExp(name, 'i')) != -1 && line.name != name) {
+            } else if (msg.has(new RegExp(name, 'i')) && line.name != name) {
                 msg = '<span class="notify">' + msg + '</span>';
             }
 
+            // Add to the chat buffer
             buffer.append('<li>[' + time + '] &lt;' + nm + '&gt; ' + msg + '</li>');
-        }
 
-        $('#messages li').last().scrollTop(0);
+            // Prune the buffer of lines beyond BUFFER_SIZE
+            while ($('#messages li').length > BUFFER_SIZE) {
+                $('#messages li').first().remove();
+            }
+        });
     }
 
     function _on_error(e) {
         $('#errors').text(e);
+    }
+
+    function _scroll() {
+        $('#messages').animate({'scrollTop': $('#messages')[0].scrollHeight}, 300);
     }
 
     $(function() {
@@ -80,24 +85,21 @@
             'set_topic' : _set_topic,
             'set_users' : _set_users,
             'add_msgs'  : _add_msgs,
-            'on_error'  : _on_error
-        });
+            'on_error'  : _on_error,
+            'on_ready'  : function() {
+                $('#send_msg').click(function(e) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    chat.queue($('#message').val());
+                    $('#message').val('').focus();
+                });
 
-        $('#send_msg').click(function(e) {
-            e.stopPropagation();
-            e.preventDefault();
+                // Start with focus on chat input
+                $('#message').focus();
 
-            var msg = $('#message').val();
-
-            if (msg) {
-                chat.queue(msg);
+                _scroll.every(500);
             }
-
-            $('#message').val('').focus();
         });
-
-        // Start with focus on chat input
-        $('#message').focus();
     });
 </script>
 
@@ -106,16 +108,18 @@
     table td       { border: 1px solid black; }
     table td       { vertical-align: top; }
 
-    td#chat        { width: 80%; }
-    td#chat h4     { margin: 0; padding: 4px; }
-    ul#messages    { list-style: none; padding: 0; margin: 0; overflow: scroll; height: 400px; }
+    td#chat        { width: 80%; font-size: 0.8em; }
+    td#chat h4     { margin: 0; padding: 4px; background-color: #333; color: #fff; }
+    ul#messages    { list-style: none; padding: 0; margin: 0; overflow: scroll; height: 400px; background-color: #eee; }
     ul#messages li { padding: 2px; margin: 0; }
-    input#message  { width: 80%; }
 
-    td#users       { width: 20%; }
-    td#users h4    { margin: 0; padding: 4px; }
-    td#users ul    { list-style: none; padding: 0; margin: 0; }
+    td#users       { width: 20%; font-size: 0.8em; }
+    td#users h4    { margin: 0; padding: 4px; background-color: #333; color: #fff; }
+    td#users ul    { list-style: none; padding: 0; margin: 0; height: 400px; overflow: scroll; background-color: #eee; }
     td#users li    { padding: 2px; margin: 0; }
+
+    input#message  { width: 80%; }
+    input#send_msg { }
 
     .other         { color: green; font-weight: bold; }
     .self          { color: blue; font-weight: bold; }
@@ -136,14 +140,18 @@
             <td id="chat">
                 <h4 id="topic">[[% room %]] [% topic %]</h4>
                 <ul id="messages"></ul>
-                <form>
-                    <input type="text" id="message" />
-                    <input type="submit" id="send_msg" value="Send message" />
-                </form>
             </td>
             <td id="users">
                 <h4>Users</h4>
                 <ul id="userlist"></ul>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <form>
+                    <input type="text" id="message" />
+                    <input type="submit" id="send_msg" value="Send message" />
+                </form>
             </td>
         </tr>
     </tbody>
