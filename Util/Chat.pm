@@ -21,6 +21,7 @@ use fields (
     'topic',    # chat room topic
     'history',  # max number of messages to retain
     'msgs',     # message buffer/queue
+    'priv',     # private messages (hash of name => [])
     'push',     # hash of name => marker to track last push
 );
 
@@ -38,6 +39,7 @@ sub new {
     $self->{topic}   = $topic;
     $self->{history} = $history;
     $self->{msgs}    = [];
+    $self->{priv}    = {};
     $self->{push}    = {};
 
     return $self;
@@ -49,6 +51,7 @@ sub new {
 sub subscribe {
     my ($self, $name) = @_;
     $self->{push}{$name} = time;
+    $self->{priv}{$name} = [];
 }
 
 #-------------------------------------------------------------------------------
@@ -57,6 +60,7 @@ sub subscribe {
 sub unsubscribe {
     my ($self, $name) = @_;
     delete $self->{push}{$name};
+    delete $self->{priv}{$name};
 }
 
 #-------------------------------------------------------------------------------
@@ -83,7 +87,13 @@ sub get_messages {
     my ($self, $name) = @_;
     $self->subscribe($name) unless $self->is_subscribed($name);
 
-    my @msgs = grep { $_->{ts} > $self->{push}{$name} } @{$self->{msgs}};
+    my @msgs = sort {$a->{ts} <=> $b->{ts}} (
+        grep { $_->{ts} > $self->{push}{$name} } @{$self->{msgs}},
+        @{$self->{priv}{$name}},
+    );
+
+    # Clear private inbox
+    $self->{priv}{$name} = [];
 
     # Update push timestamp
     $self->{push}{$name} = time;
@@ -93,14 +103,31 @@ sub get_messages {
 
 #-------------------------------------------------------------------------------
 # Adds a message to the buffer, trimming any messages necessary to ensure the
-# buffer does not grow beyond $self->{history} messages.
+# buffer does not grow beyond $self->{history} messages. If $target is
+# specified, the message will be a private message to the specified user.
+# Croaks if the $target is not subscribed.
 #-------------------------------------------------------------------------------
 sub post {
-    my ($self, $name, $line) = @_;
-    my $msg = Util::Chat::Msg->new(name => $name, msg => $line, ts => time);
-    push @{$self->{msgs}}, $msg;
-    shift @{$self->{msgs}}
-        while scalar(@{$self->{msgs}}) > $self->{history};
+    my ($self, $name, $line, $target) = @_;
+
+    my $msg = Util::Chat::Msg->new(
+        name   => $name,
+        msg    => $line,
+        ts     => time,
+        target => $target,
+    );
+
+    if (defined $target) {
+        if ($self->is_subscribed($target)) {
+            push @{$self->{priv}{$target}}, $msg;
+        } else {
+            croak "User $target is not in the room.";
+        }
+    } else {
+        push @{$self->{msgs}}, $msg;
+        shift @{$self->{msgs}}
+            while scalar(@{$self->{msgs}}) > $self->{history};
+    }
 }
 
 1;

@@ -32,9 +32,9 @@ ChatService.prototype.connect = function() {
 
 ChatService.prototype.on_connect = function(e) {
     this.is_connected = true;
-    while (this.pending.length > 0) {
-        this.send(this.pending.shift());
-    }
+
+    this.pending.each(this.send.bind(this));
+    this.pending = [];
 
     if (!this.initialized) {
         this.initialized = true;
@@ -70,18 +70,18 @@ ChatService.prototype.recv = function(e) {
     }
 };
 
-ChatService.prototype.send = function(msg) {
-    this.ws.send(msg);
+ChatService.prototype.send = function(data) {
+    this.ws.send(JSON.stringify(data));
 };
 
-ChatService.prototype.queue = function(msg) {
+ChatService.prototype.queue = function(msg, target) {
     msg = msg.trim();
     if (msg != '') {
+        var data = { 'msg': msg, 'target': target };
         if (this.is_connected) {
-            this.send(msg);
+            this.send(data);
         } else {
-            this.pending.push(msg);
-            this.connect();
+            this.pending.push(data);
         }
     }
 };

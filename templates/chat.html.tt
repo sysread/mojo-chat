@@ -8,28 +8,52 @@
     var name = "[% name %]";
     var room = "[% room %]";
 
+    var all_users = [];
+
     function _set_topic(topic) {
         $('#topic').text('[' + room + '] ' + topic);
     }
 
     function _set_users(users) {
-        var list = '';
-        for (var i = 0; i < users.length; ++i) {
-            if (users[i] == name) {
-                list += '<li class="self">' + users[i] + '</li>';
-            } else {
-                list += '<li>' + users[i] + '</li>';
-            }
-        }
+        var user_list = $('#userlist');
+        var targets   = $('#target');
 
-        $('#userlist').html(list);
+        var to_remove = all_users.subtract(users);
+        var to_add    = users.subtract(all_users);
+
+        to_add.each(function(user) {
+            var is_self = user == name;
+
+            var li = $('<li>' + user + '</li>');
+            if (is_self) li.addClass('self');
+            li.attr('user', user); // for easy deletion later
+            user_list.append(li);
+
+            if (!is_self) {
+                var opt = $('<option>' + user + '</option>');
+                opt.val(user);
+                opt.attr('user', user); // for easy deletion later
+                targets.append(opt);
+            }
+
+            all_users = all_users.add(user);
+        });
+
+        to_remove.each(function(user) {
+            $('*[user="'+user+'"]').remove();
+            all_users = all_users.subtract(user);
+        });
     }
 
     function _add_msgs(lines) {
         var buffer = $('#messages');
 
         lines.each(function(line) {
-            var msg  = line.msg;
+            // Determine type of message
+            var is_private = line.target == name;
+            var is_system  = line.name   == 'system';
+            var is_self    = line.name   == name;
+            var has_self   = line.msg.has(new RegExp(name, 'i'));
 
             /*
              * Format the time into just hh:mm:ss. Note that the time stamp
@@ -37,27 +61,35 @@
              */
             var time = new Date(line.ts * 1000).format('{HH}:{mm}:{ss}');
 
-            // Highlight the name
-            var nm = line.name;
-            var nm_cls = 'other';
+            // Create the message line
+            var from = $('<span>&lt;' + line.name + '&gt;</span>');
+            var msg  = $('<span>' + line.msg + '</span>');
 
-            if (nm == 'system') {
-                nm_cls = 'system';
-            } else if (nm == name) {
-                nm_cls = 'self';
+            from.addClass('other');
+
+            if (is_system) {
+                from.addClass('system').removeClass('other');
             }
 
-            nm = '<span class="' + nm_cls + '">' + nm + '</span>';
-
-            // Highlight system messages and messages mentioning the user's name
-            if (nm == 'system') {
-                msg = '<span class="system">' + msg + '</span>';
-            } else if (msg.has(new RegExp(name, 'i')) && line.name != name) {
-                msg = '<span class="notify">' + msg + '</span>';
+            if (is_self) {
+                from.addClass('self').removeClass('other');
             }
 
-            // Add to the chat buffer
-            buffer.append('<li>[' + time + '] &lt;' + nm + '&gt; ' + msg + '</li>');
+            if (has_self) {
+                msg.addClass('notify');
+            }
+
+            if (is_private) {
+                from.html('&lt&ltfrom ' + line.name + '&gt;&gt;&nbsp;');
+                from.addClass('personal').removeClass('other');
+            }
+
+            var li = $('<li></li>');
+            li.append('[' + time + ']&nbsp;');
+            li.append(from);
+            li.append(msg);
+
+            buffer.append(li);
 
             // Prune the buffer of lines beyond BUFFER_SIZE
             while ($('#messages li').length > BUFFER_SIZE) {
@@ -86,7 +118,12 @@
                 $('#send_msg').click(function(e) {
                     e.stopPropagation();
                     e.preventDefault();
-                    chat.queue($('#message').val());
+
+                    var msg = $('#message').val();
+                    var target = $('#target').val();
+
+                    chat.queue(msg, target);
+
                     $('#message').val('').focus();
                 });
 
@@ -114,13 +151,14 @@
     td#users ul    { list-style: none; padding: 0; margin: 0; height: 400px; overflow: scroll; background-color: #eee; }
     td#users li    { padding: 2px; margin: 0; }
 
-    input#message  { width: 80%; }
+    input#message  { width: 50%; }
     input#send_msg { }
 
     .other         { color: green; font-weight: bold; }
     .self          { color: blue; font-weight: bold; }
     .notify        { color: orange; font-weight: bold; }
     .system        { color: darkred; font-weight: bold; }
+    .personal      { color: red; font-weight: bold; }
 
     #errors        { color: darkred; font-weight: bold; }
 </style>
@@ -145,6 +183,9 @@
         <tr>
             <td colspan="2">
                 <form>
+                    To <select id="target">
+                        <option value="everyone">everyone</option>
+                    </select>:
                     <input type="text" id="message" />
                     <input type="submit" id="send_msg" value="Send message" />
                 </form>

@@ -1,10 +1,11 @@
 use strict;
 use warnings;
 
+use Const::Fast;
+use JSON::XS;
+use Mojo::IOLoop;
 use Mojolicious::Lite;
 use Mojolicious::Plugin::TtRenderer;
-use Mojo::IOLoop;
-use Const::Fast;
 
 use Data::Fixtures;
 use Data::Course;
@@ -161,7 +162,7 @@ websocket '/chat/:room' => sub {
     # Increase timeout for websocket connections
     Mojo::IOLoop->stream($self->tx->connection)->timeout(600);
 
-    my $thread = Mojo::IOLoop->recurring(0.5 => sub {
+    my $thread = Mojo::IOLoop->recurring(2 => sub {
         # Send updates
         my @messages = $chat->get_messages($name);
         my @users    = $chat->subscribed;
@@ -177,9 +178,24 @@ websocket '/chat/:room' => sub {
         });
     });
 
+    my $json = JSON::XS->new();
+
     $self->on(message => sub {
-        my ($self, $msg) = @_;
-        $chat->post($name, $msg);
+        my ($self, $line) = @_;
+
+        my $data = eval { $json->decode($line) };
+        if ($@) {
+            warn $@;
+            $self->send({json => {error => 'Protocol error'}});
+            return;
+        }
+
+        undef $data->{target} if $data->{target} eq 'everyone';
+        eval { $chat->post($name, $data->{msg}, $data->{target}) };
+        if ($@) {
+            $self->send({json => {error => $@}});
+            return;
+        }
     });
 
     $self->on(finish => sub {
