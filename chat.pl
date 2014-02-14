@@ -42,18 +42,18 @@ my %CHAT;
 # DEMO: populates database with fake data
 #-------------------------------------------------------------------------------
 sub initialize {
-    warn "Initializing...\n";
-
     Data::Fixtures::generate();
+    update_room_list();
+}
 
-    warn "Creating chat rooms for pretend courses:\n";
-
-    %CHAT = (
-        'The Quad' => Util::Chat->new(
-            name    => 'The Quad',
-            topic   => 'Welcome to the Quad!',
-            history => $DEFAULT_HISTORY,
-        ),
+#-------------------------------------------------------------------------------
+# Updates the list of chat rooms.
+#-------------------------------------------------------------------------------
+sub update_room_list {
+    $CHAT{'The Quad'} ||= Util::Chat->new(
+        name    => 'The Quad',
+        topic   => 'Welcome to the Quad!',
+        history => $DEFAULT_HISTORY,
     );
 
     foreach my $class (Data::Class->search({ active => 1 })) {
@@ -66,7 +66,7 @@ sub initialize {
             history => $DEFAULT_HISTORY,
         );
 
-        $CHAT{$section} = Util::Chat->new(
+        $CHAT{$section} ||= Util::Chat->new(
             name    => $section,
             topic   => "Discussion for $course section $section.",
             history => $DEFAULT_HISTORY,
@@ -79,6 +79,7 @@ sub initialize {
 #-------------------------------------------------------------------------------
 get '/' => sub {
     my $self = shift;
+    update_room_list;
     $self->render('index', rooms => [sort keys %CHAT]);
 };
 
@@ -87,6 +88,8 @@ get '/' => sub {
 #-------------------------------------------------------------------------------
 post '/' => sub {
     my $self = shift;
+    update_room_list;
+
     my $name = $self->param('name');
     my $room = $self->param('room');
 

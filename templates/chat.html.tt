@@ -2,10 +2,6 @@
 
 <script type="text/javascript" src="/chat.js"></script>
 <script type="text/javascript">
-    /*
-     * TODO
-     *   -Colorize teacher's name in chat
-     */
     var BUFFER_SIZE = 100;
 
     var url  = "[% url %]";

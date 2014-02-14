@@ -1,5 +1,3 @@
-#-------------------------------------------------------------------------------
-#-------------------------------------------------------------------------------
 package Util::Chat;
 
 use strict;
@@ -84,8 +82,12 @@ sub subscribed {
 sub get_messages {
     my ($self, $name) = @_;
     $self->subscribe($name) unless $self->is_subscribed($name);
+
     my @msgs = grep { $_->{ts} > $self->{push}{$name} } @{$self->{msgs}};
+
+    # Update push timestamp
     $self->{push}{$name} = time;
+
     return @msgs;
 }
 
