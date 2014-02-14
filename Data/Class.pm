@@ -1,3 +1,7 @@
+#-------------------------------------------------------------------------------
+# This models the actual class, consisting of a course and section together and
+# class state.
+#-------------------------------------------------------------------------------
 package Data::Class;
 
 use base 'Data';

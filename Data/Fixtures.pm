@@ -1,3 +1,6 @@
+#-------------------------------------------------------------------------------
+# This module provides some fake data to populate the chat rooms.
+#-------------------------------------------------------------------------------
 package Data::Fixtures;
 
 use strict;

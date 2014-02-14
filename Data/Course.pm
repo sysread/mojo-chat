@@ -1,3 +1,7 @@
+#-------------------------------------------------------------------------------
+# This is an individual course of study. It stores data shared between all
+# sections of a course.
+#-------------------------------------------------------------------------------
 package Data::Course;
 
 use base 'Data';
