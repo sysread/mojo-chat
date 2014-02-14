@@ -53,8 +53,8 @@ sub initialize {
 # Updates the list of chat rooms.
 #-------------------------------------------------------------------------------
 sub update_room_list {
-    $CHAT{'The Quad'} ||= Util::Chat->new(
-        name    => 'The Quad',
+    $CHAT{'TheQuad'} ||= Util::Chat->new(
+        name    => 'TheQuad',
         topic   => 'Welcome to the Quad!',
         history => $DEFAULT_HISTORY,
     );
@@ -152,7 +152,7 @@ websocket '/chat/:room' => sub {
     my $self = shift;
     my $room = $self->stash('room');
 
-    die 'room not round'
+    die 'room not found'
         unless $room && exists $CHAT{$room};
 
     my $name = $self->session->{chats}{$room}{name}
