@@ -16,9 +16,9 @@ use fields (
 
 sub new {
     my ($class, %param) = @_;
-    my $ts     = $param{ts}   || time;
-    my $name   = $param{name} || croak 'expected parameter "name"';
-    my $msg    = $param{msg}  || croak 'expected parameter "msg"';
+    my $ts     = $param{ts}   // time;
+    my $name   = $param{name} // croak 'expected parameter "name"';
+    my $msg    = $param{msg}  // croak 'expected parameter "msg"';
     my $target = $param{target};
 
     my $self = fields::new($class);

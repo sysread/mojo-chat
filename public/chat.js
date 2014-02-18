@@ -76,7 +76,7 @@ ChatService.prototype.send = function(data) {
 
 ChatService.prototype.queue = function(msg, target) {
     msg = msg.trim();
-    if (msg != '') {
+    if (msg !== '') {
         var data = { 'msg': msg, 'target': target };
         if (this.is_connected) {
             this.send(data);

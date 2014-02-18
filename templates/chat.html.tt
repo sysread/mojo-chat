@@ -4,56 +4,82 @@
 <script type="text/javascript">
     var BUFFER_SIZE = 100;
 
-    var url  = "[% url %]";
-    var name = "[% name %]";
-    var room = "[% room %]";
+    var url   = "[% url %]";
+    var name  = "[% name %]";
+    var room  = "[% room %]";
+    var title = "[% title %]";
 
+    // Tracks which users are already listed. Used in _set_users to know which
+    // users to add/remove when a new user list is received.
     var all_users = [];
 
+    // Tracks if the window is currently focused. Used to decide when to put
+    // a notification asterisk in the title.
+    var is_focused = true;
+
+    // Replaces URLs in a message with HTML links that open in a new window.
+    // Stol... that is, borrowed from:
+    //   http://stackoverflow.com/questions/37684/how-to-replace-plain-urls-with-links
+    function linkify(text) {
+        var exp = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+        return text.replace(exp,'<a target="_blank" href="$1">$1</a>'); 
+    }
+
+    // Updates the chat room topic line
     function _set_topic(topic) {
         $('#topic').text('[' + room + '] ' + topic);
     }
 
+    // Updates the user list
     function _set_users(users) {
         var user_list = $('#userlist');
         var targets   = $('#target');
 
+        // Determine which users need added or removed from the user list
         var to_remove = all_users.subtract(users);
         var to_add    = users.subtract(all_users);
 
+        // Add new users to user list and to private message drop down
         to_add.each(function(user) {
             var is_self = user == name;
 
             var li = $('<li>' + user + '</li>');
             if (is_self) li.addClass('self');
-            li.attr('user', user); // for easy deletion later
+            li.attr('user', user);
             user_list.append(li);
 
             if (!is_self) {
                 var opt = $('<option>' + user + '</option>');
                 opt.val(user);
-                opt.attr('user', user); // for easy deletion later
+                opt.attr('user', user);
                 targets.append(opt);
             }
 
             all_users = all_users.add(user);
         });
 
+        // Remove users who have left the chat from the user list and private
+        // message drop down.
         to_remove.each(function(user) {
             $('*[user="'+user+'"]').remove();
             all_users = all_users.subtract(user);
         });
     }
 
+    // Adds new messages from the buffer
     function _add_msgs(lines) {
         var buffer = $('#messages');
 
         lines.each(function(line) {
             // Determine type of message
-            var is_private = line.target == name;
-            var is_system  = line.name   == 'system';
-            var is_self    = line.name   == name;
+            var is_prv_in  = line.target === name;
+            var is_prv_out = !is_prv_in && line.target !== null;
+            var is_system  = line.name   === 'system';
+            var is_self    = line.name   === name;
             var has_self   = line.msg.has(new RegExp(name, 'i'));
+
+            // Turn urls into links
+            var text = linkify(line.msg);
 
             /*
              * Format the time into just hh:mm:ss. Note that the time stamp
@@ -63,30 +89,40 @@
 
             // Create the message line
             var from = $('<span>&lt;' + line.name + '&gt;</span>');
-            var msg  = $('<span>' + line.msg + '</span>');
+            var msg  = $('<span>' + text + '</span>');
 
             from.addClass('other');
 
+            // Highlight system messages
             if (is_system) {
                 from.addClass('system').removeClass('other');
             }
 
+            // Highlight messages from the user
             if (is_self) {
                 from.addClass('self').removeClass('other');
             }
 
+            // Highlight messages mentioning the user's name
             if (has_self) {
                 msg.addClass('notify');
             }
 
-            if (is_private) {
-                from.html('&lt&ltfrom ' + line.name + '&gt;&gt;&nbsp;');
+            // Highlight private messages
+            if (is_prv_in) {
+                from.html('&lt;&lt;from ' + line.name + '&gt;&gt;&nbsp;');
+                from.addClass('personal').removeClass('other');
+            }
+
+            if (is_prv_out) {
+                from.html('&lt;&lt;to ' + line.target + '&gt;&gt;&nbsp;');
                 from.addClass('personal').removeClass('other');
             }
 
             var li = $('<li></li>');
             li.append('[' + time + ']&nbsp;');
             li.append(from);
+            li.append('&nbsp;');
             li.append(msg);
 
             buffer.append(li);
@@ -96,18 +132,33 @@
                 $('#messages li').first().remove();
             }
         });
+
+        if (!is_focused && lines.length > 0) {
+            $('title').text('* ' + title);
+        }
     }
 
+    // Displays an error
     function _on_error(e) {
         $('#errors').text(e);
     }
 
+    // Scrolls the chat buffer to the bottom message
     function _scroll() {
         $('#messages').animate({'scrollTop': $('#messages')[0].scrollHeight}, 300);
     }
 
+    // Sends the message to the server
+    function post_message(chat) {
+        var msg = $('#message').val();
+        var target = $('#target').val();
+        chat.queue(msg, target);
+        $('#message').val('').focus();
+    }
+
     $(function() {
-        var chat = new ChatService({
+        var chat;
+        chat = new ChatService({
             'url'       : url,
             'name'      : name,
             'set_topic' : _set_topic,
@@ -115,16 +166,16 @@
             'add_msgs'  : _add_msgs,
             'on_error'  : _on_error,
             'on_ready'  : function() {
+                $('#message').keypress(function(e) {
+                    if (e.which == 13) {
+                        e.preventDefault();
+                        post_message(chat);
+                    }
+                });
+
                 $('#send_msg').click(function(e) {
-                    e.stopPropagation();
                     e.preventDefault();
-
-                    var msg = $('#message').val();
-                    var target = $('#target').val();
-
-                    chat.queue(msg, target);
-
-                    $('#message').val('').focus();
+                    post_message(chat);
                 });
 
                 // Start with focus on chat input
@@ -132,6 +183,15 @@
 
                 _scroll.every(500);
             }
+        });
+
+        $(window).on('focus', function(e) {
+            is_focused = true;
+            $('title').text(title);
+        });
+
+        $(window).on('blur', function(e) {
+            is_focused = false;
         });
     });
 </script>
@@ -182,13 +242,11 @@
         </tr>
         <tr>
             <td colspan="2">
-                <form>
-                    To <select id="target">
-                        <option value="everyone">everyone</option>
-                    </select>:
-                    <input type="text" id="message" />
-                    <input type="submit" id="send_msg" value="Send message" />
-                </form>
+                To <select id="target">
+                    <option value="everyone">everyone</option>
+                </select>:
+                <input type="text" id="message" />
+                <input type="button" id="send_msg" value="Send message" />
             </td>
         </tr>
     </tbody>

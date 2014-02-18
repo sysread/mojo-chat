@@ -141,6 +141,7 @@ get '/room/:room' => sub {
         url   => "$url",
         room  => $room,
         topic => $CHAT{$room}->{topic},
+        title => $room,
     );
 };
 
@@ -164,7 +165,7 @@ websocket '/chat/:room' => sub {
     # Increase timeout for websocket connections
     Mojo::IOLoop->stream($self->tx->connection)->timeout(600);
 
-    my $thread = Mojo::IOLoop->recurring(2 => sub {
+    my $thread = Mojo::IOLoop->recurring(0.1 => sub {
         # Send updates
         my @messages = $chat->get_messages($name);
         my @users    = $chat->subscribed;

@@ -17,12 +17,13 @@ const our $DEFAULT_TOPIC => 'No topic set';
 # Class definition
 #-------------------------------------------------------------------------------
 use fields (
-    'name',     # name of the chat room
-    'topic',    # chat room topic
-    'history',  # max number of messages to retain
-    'msgs',     # message buffer/queue
-    'priv',     # private messages (hash of name => [])
-    'push',     # hash of name => marker to track last push
+    'name',    # name of the chat room
+    'topic',   # chat room topic
+    'history', # max number of messages to retain
+    'msgs',    # message buffer/queue
+    'inbox',   # inboxate messages to the user (hash of name => [])
+    'outbox',  # inboxate messages from the user (hash of name => [])
+    'push',    # hash of name => marker to track last push
 );
 
 #-------------------------------------------------------------------------------
@@ -39,7 +40,8 @@ sub new {
     $self->{topic}   = $topic;
     $self->{history} = $history;
     $self->{msgs}    = [];
-    $self->{priv}    = {};
+    $self->{inbox}   = {};
+    $self->{outbox}  = {};
     $self->{push}    = {};
 
     return $self;
@@ -50,8 +52,9 @@ sub new {
 #-------------------------------------------------------------------------------
 sub subscribe {
     my ($self, $name) = @_;
-    $self->{push}{$name} = time;
-    $self->{priv}{$name} = [];
+    $self->{push}{$name}   = time;
+    $self->{inbox}{$name}  = [];
+    $self->{outbox}{$name} = [];
 }
 
 #-------------------------------------------------------------------------------
@@ -60,7 +63,8 @@ sub subscribe {
 sub unsubscribe {
     my ($self, $name) = @_;
     delete $self->{push}{$name};
-    delete $self->{priv}{$name};
+    delete $self->{inbox}{$name};
+    delete $self->{outbox}{$name};
 }
 
 #-------------------------------------------------------------------------------
@@ -89,11 +93,12 @@ sub get_messages {
 
     my @msgs = sort {$a->{ts} <=> $b->{ts}} (
         grep { $_->{ts} > $self->{push}{$name} } @{$self->{msgs}},
-        @{$self->{priv}{$name}},
+        @{$self->{inbox}{$name}},
+        @{$self->{outbox}{$name}},
     );
 
-    # Clear private inbox
-    $self->{priv}{$name} = [];
+    # Clear inboxate inbox
+    $self->{inbox}{$name} = [];
 
     # Update push timestamp
     $self->{push}{$name} = time;
@@ -104,7 +109,7 @@ sub get_messages {
 #-------------------------------------------------------------------------------
 # Adds a message to the buffer, trimming any messages necessary to ensure the
 # buffer does not grow beyond $self->{history} messages. If $target is
-# specified, the message will be a private message to the specified user.
+# specified, the message will be a inboxate message to the specified user.
 # Croaks if the $target is not subscribed.
 #-------------------------------------------------------------------------------
 sub post {
@@ -119,7 +124,8 @@ sub post {
 
     if (defined $target) {
         if ($self->is_subscribed($target)) {
-            push @{$self->{priv}{$target}}, $msg;
+            push @{$self->{inbox}{$target}}, $msg;
+            push @{$self->{outbox}{$name}}, $msg;
         } else {
             croak "User $target is not in the room.";
         }
