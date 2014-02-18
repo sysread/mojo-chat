@@ -15,7 +15,8 @@
 
     // Tracks if the window is currently focused. Used to decide when to put
     // a notification asterisk in the title.
-    var is_focused = true;
+    var is_focused   = true;
+    var unread_count = 0;
 
     // Replaces URLs in a message with HTML links that open in a new window.
     // Stol... that is, borrowed from:
@@ -134,7 +135,8 @@
         });
 
         if (!is_focused && lines.length > 0) {
-            $('title').text('* ' + title);
+            unread_count += lines.length;
+            $('title').text('[' + unread_count + ' msgs] ' + title);
         }
     }
 
@@ -186,12 +188,14 @@
         });
 
         $(window).on('focus', function(e) {
+            unread_count = 0;
             is_focused = true;
             $('title').text(title);
         });
 
         $(window).on('blur', function(e) {
             is_focused = false;
+            unread_count = 0;
         });
     });
 </script>
